@@ -1,7 +1,7 @@
 name: Build debug APK
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "develop" ]
   workflow_dispatch:
 
 jobs:
@@ -24,9 +24,19 @@ jobs:
       - name: Build with Gradle
         run: ./gradlew assembleDebug
 
+      - name: Sign Debug APK
+        uses: r0adkll/sign-android-release@v1
+        id: sign_debug
+        with:
+          releaseDirectory: app/build/outputs/apk/debug
+          signingKeyBase64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          alias: ${{ secrets.KEY_ALIAS }}
+          keyStorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
+          keyPassword: ${{ secrets.KEY_PASSWORD }}
+
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: "MediaWidget Debug"
-          path: app/build/outputs/apk/debug/*.apk
+          path: ${{ steps.sign_debug.outputs.signedReleaseFile }}
           if-no-files-found: error

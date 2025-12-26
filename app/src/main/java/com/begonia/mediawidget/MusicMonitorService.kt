@@ -27,8 +27,8 @@ class MusicMonitorService : NotificationListenerService() {
         override fun onMetadataChanged(metadata: MediaMetadata?) {
             super.onMetadataChanged(metadata)
             Timber.d("🎵 Метаданные изменились.")
-            logMetadata(metadata, currentController?.playbackState)
-            updateWidgetData(metadata)
+            logMetadata(metadata, currentController?.playbackState, currentController?.packageName)
+            updateWidgetData(metadata, currentController?.packageName)
         }
     }
 
@@ -42,7 +42,7 @@ class MusicMonitorService : NotificationListenerService() {
 
         sessionsChangedListener =
             MediaSessionManager.OnActiveSessionsChangedListener { controllers ->
-                Timber.d("Список плееров изменился. Найдено: ${controllers?.size}")
+                Timber.d("🔊 Список плееров изменился. Найдено: ${controllers?.size}")
                 updateCurrentController(controllers)
             }
 
@@ -66,7 +66,7 @@ class MusicMonitorService : NotificationListenerService() {
         mediaSessionManager.removeOnActiveSessionsChangedListener(sessionsChangedListener)
     }
 
-    private fun updateWidgetData(metadata: MediaMetadata?) {
+    private fun updateWidgetData(metadata: MediaMetadata?, packageName: String?) {
         scope.launch {
             val title = metadata?.getString(MediaMetadata.METADATA_KEY_TITLE) ?: "Unknown title"
             val artist = metadata?.getString(MediaMetadata.METADATA_KEY_ARTIST) ?: "Unknown artist"
@@ -74,7 +74,7 @@ class MusicMonitorService : NotificationListenerService() {
 
             val coverPath = createCoverPath(rawBitmap)
 
-            pushWidgetUpdate(title, artist, coverPath)
+            pushWidgetUpdate(title, artist, coverPath, packageName)
         }
     }
 
@@ -97,7 +97,8 @@ class MusicMonitorService : NotificationListenerService() {
     private suspend fun pushWidgetUpdate(
         title: String,
         artist: String,
-        coverPath: String?
+        coverPath: String?,
+        packageName: String?
     ) {
         val context = applicationContext
         val manager = GlanceAppWidgetManager(context)
@@ -107,6 +108,7 @@ class MusicMonitorService : NotificationListenerService() {
             updateAppWidgetState(context, glanceId) { prefs ->
                 prefs[MusicWidgetKeys.titleKey] = title
                 prefs[MusicWidgetKeys.artistKey] = artist
+                packageName?.let { prefs[MusicWidgetKeys.packageNameKey] = it }
 
                 if (coverPath != null) {
                     prefs[MusicWidgetKeys.coverPathKey] = coverPath
@@ -125,18 +127,22 @@ class MusicMonitorService : NotificationListenerService() {
         val controller = controllers.first()
         if (currentController?.sessionToken == controller.sessionToken) return
 
-        Timber.d("Переключение на новый плеер: ${controller.packageName}")
+        Timber.d("🆕 Переключение на новый плеер: ${controller.packageName}")
 
         currentController?.unregisterCallback(mediaCallback)
 
         currentController = controller
         currentController?.registerCallback(mediaCallback)
 
-        logMetadata(controller.metadata, controller.playbackState)
-        updateWidgetData(controller.metadata)
+        logMetadata(controller.metadata, controller.playbackState, controller.packageName)
+        updateWidgetData(controller.metadata, controller.packageName)
     }
 
-    private fun logMetadata(metadata: MediaMetadata?, state: PlaybackState?) {
+    private fun logMetadata(
+        metadata: MediaMetadata?,
+        state: PlaybackState?,
+        packageName: String?
+    ) {
         if (metadata == null) return
 
         val artist = metadata.getString(MediaMetadata.METADATA_KEY_ARTIST) ?: "Unknown artist"
@@ -144,6 +150,11 @@ class MusicMonitorService : NotificationListenerService() {
 
         val isPlaying = state?.state == PlaybackState.STATE_PLAYING
 
-        Timber.d("Текущий трек: $title - $artist / Играет: $isPlaying")
+        Timber.d(
+            """🎵 Текущий трек: $title - $artist
+                |🍎 Приложение: $packageName
+                |⏯️ Статус: $isPlaying
+            """.trimMargin()
+        )
     }
 }

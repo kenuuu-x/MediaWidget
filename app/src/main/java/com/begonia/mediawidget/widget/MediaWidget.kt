@@ -1,6 +1,7 @@
 package com.begonia.mediawidget.widget
 
 import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.compose.runtime.Composable
@@ -13,7 +14,9 @@ import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
 import androidx.glance.Image
 import androidx.glance.ImageProvider
+import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
+import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.appWidgetBackground
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
@@ -64,12 +67,16 @@ class MediaWidget : GlanceAppWidget() {
 
             val title = prefs[MusicWidgetKeys.titleKey] ?: "2DWRLD"
             val artist = prefs[MusicWidgetKeys.artistKey] ?: "Midix"
+            val packageName = prefs[MusicWidgetKeys.packageNameKey] ?: context.packageName
+
+            val launchIntent = context.packageManager.getLaunchIntentForPackage(packageName)
 
             GlanceTheme {
                 WidgetContent(
                     title = title,
                     artist = artist,
                     bitmap = bitmap,
+                    launchIntent = launchIntent
                 )
             }
         }
@@ -82,6 +89,7 @@ private fun WidgetContent(
     title: String,
     artist: String,
     bitmap: Bitmap?,
+    launchIntent: Intent?,
 ) {
     Box(
         modifier = GlanceModifier
@@ -89,6 +97,7 @@ private fun WidgetContent(
             .background(ThemeExtras.widgetBackgroundColor)
             .appWidgetBackground()
             .cornerRadius(28.dp)
+            .clickableIf(launchIntent)
     ) {
         Column(
             modifier = GlanceModifier
@@ -173,3 +182,10 @@ fun MediaInfo(
         )
     }
 }
+
+fun GlanceModifier.clickableIf(intent: Intent?): GlanceModifier =
+    if (intent != null) {
+        this.then(GlanceModifier.clickable(actionStartActivity(intent)))
+    } else {
+        this
+    }
